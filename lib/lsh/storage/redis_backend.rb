@@ -23,13 +23,10 @@ module LSH
 
     class RedisBackend
 
-      attr_reader :redis, :data_dir
+      attr_reader :redis
 
-      def initialize(params = { :redis => { :host => '127.0.0.1', :port => 6379 }, :data_dir => 'data' })
+      def initialize(params = { :redis => { :host => '127.0.0.1', :port => 6379 }})
         @redis = Redis.new(params[:redis])
-        @data_dir = params[:data_dir]
-        Dir.mkdir(@data_dir) unless File.exists?(@data_dir)
-        Dir.mkdir(File.join(@data_dir, 'projections')) unless File.exists?(File.join(@data_dir, 'projections'))
       end
 
       def reset!
@@ -44,17 +41,15 @@ module LSH
         @redis.del(keys) unless keys.empty?
         keys = @redis.keys("lsh:id_to_vector:*")
         @redis.del(keys) unless keys.empty?
-        delete_dat_files_in_dir(@data_dir)
+        keys = @redis.keys("lsh:vector:*")
+        @redis.del(keys) unless keys.empty?
       end
 
       def clear_projections!
         @redis.del("lsh:parameters")
         @redis.del("lsh:buckets")
-        delete_dat_files_in_dir(File.join(@data_dir, 'projections'))
-      end
-
-      def delete_dat_files_in_dir(dir)
-        Dir.foreach(dir) {|f| File.delete(File.join(dir, f)) if f != '.' and f != '..' and f.end_with?('.dat')}
+        keys = @redis.keys("lsh:projection:*")
+        @redis.del(keys) unless keys.empty?
       end
 
       def has_index?
@@ -66,24 +61,19 @@ module LSH
       end
 
       def projections=(projections)
-        # Saving the projections to disk
-        # (too slow to serialize and store in Redis for
-        # large number of dimensions/projections)
         projections.each_with_index do |projection, i|
-          projection.save(File.join(@data_dir, 'projections', "projection_#{i}.dat"))
+          @redis.set("lsh:projection:#{i}", projection.to_binary)
         end
       end
 
       def projections
         return unless parameters
         @projections ||= (
-          projections = []
-          parameters[:number_of_independent_projections].times do |i|
-            m = MathUtil.zeros(parameters[:number_of_random_vectors], parameters[:dim])
-            m.load(File.join(@data_dir, 'projections', "projection_#{i}.dat"))
-            projections << m
+          (0...parameters[:number_of_independent_projections]).map do |i|
+            m = MathUtil.zeros(parameters[:number_of_random_vectors],
+                               parameters[:dim])
+            m.from_binary(@redis.get("lsh:projection:#{i}"))
           end
-          projections
         )
       end
 
@@ -110,14 +100,12 @@ module LSH
       end
 
       def save_vector(vector, vector_hash)
-        path = File.join(@data_dir, vector_hash.to_s+'.dat')
-        vector.save(path) unless File.exists?(path)
+        @redis.set "lsh:vector:#{vector_hash}", vector.to_binary
       end
 
       def load_vector(hash)
-        vector = MathUtil.zeros(1, parameters[:dim])
-        vector.load(File.join(@data_dir, hash+'.dat'))
-        vector
+        MathUtil.zeros(1, parameters[:dim])
+                .from_binary(@redis.get "lsh:vector:#{hash}")
       end
 
       def add_vector(vector, vector_hash)

@@ -79,14 +79,11 @@ Or you can associate your vectors with ids and query using them.
 GSL notes
 ---------
 
-If you get a compilation error when installing GSL, try this version:
+You will need the following version of GSL to use the Redis backend:
 
-  https://github.com/romanbsd/rb-gsl
+  https://github.com/tomjnixon/rb-gsl
 
-As you will need a version of GSL that includes this patch:
-
-  https://gist.github.com/1217974
-
+This includes a patch to make serialising GSL arrays acceptably fast.
 
 Licensing terms and authorship
 ------------------------------

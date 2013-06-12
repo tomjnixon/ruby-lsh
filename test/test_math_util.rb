@@ -49,4 +49,9 @@ class MathUtilTest < Test::Unit::TestCase
     assert_equal v.hash, JSON.parse(v.to_json, :create_additions => true).hash
   end
 
+  def test_serialize
+    v = LSH::MathUtil.random_gaussian_matrix(5, 10)
+    assert_equal LSH::MathUtil.zeros(5, 10).from_binary(v.to_binary), v
+  end
+
 end

@@ -68,6 +68,23 @@ module JBLAS
       [ rows, columns ]
     end
 
+    def to_binary
+      bbuf = java.nio.ByteBuffer.allocate(8*length)
+      bbuf.asDoubleBuffer.put(java.nio.DoubleBuffer.wrap(data))
+      bbuf.array.to_s
+    end
+
+    def from_binary(s)
+      if s.length != 8 * length
+        raise ArgumentError.new "wrong data size"
+      end
+
+      bbuf = java.nio.DoubleBuffer.allocate(length)
+      bbuf.put(java.nio.ByteBuffer.wrap(s.to_java_bytes).asDoubleBuffer)
+      self.data = bbuf.array
+      self
+    end
+
   end
 
 end

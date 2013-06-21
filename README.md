@@ -79,9 +79,9 @@ Or you can associate your vectors with ids and query using them.
 GSL notes
 ---------
 
-You will need the following version of GSL to use the Redis backend:
+You will need to use the following version of GSL to use the Redis backend:
 
-  https://github.com/tomjnixon/rb-gsl
+  http://rubygems.org/gems/gsl-lsh
 
 This includes a patch to make serialising GSL arrays acceptably fast.
 

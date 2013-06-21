@@ -21,7 +21,7 @@ Gem::Specification.new do |s|
   ]
   s.platform = $platform
   s.add_dependency 'jblas-ruby' if ($platform.to_s == 'java')
-  s.add_dependency 'gsl' if ($platform.to_s == 'ruby')
+  s.add_dependency 'gsl-lsh' if ($platform.to_s == 'ruby')
   s.add_dependency 'json'
   s.add_dependency 'redis'
   s.add_dependency 'sinatra'

@@ -20,12 +20,17 @@ module LSH
 
     post '/query' do
       raise "Missing query" unless params[:data]
+      include_data = {nil => true, "true" => true, "false" => false}[params[:include_data]]
+      raise "include_data must be 'true' or 'false'." if include_data.nil?
       mime_type = (params[:mime_type] || 'application/json')
       if mime_type == 'application/json'
         t0 = Time.now
         vector = JSON.parse(params[:data], :create_additions => true)
         min_similarity = params[:min_similarity].to_f if params[:min_similarity]
         results = index.query(vector, params[:radius] || 0, min_similarity)
+        if not include_data
+          results = results.map { |result| result.merge(:data => nil) }
+        end
         content_type :json
         { "time" => Time.now - t0, "results" => results }.to_json
       else

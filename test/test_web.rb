@@ -85,6 +85,25 @@ class TestWeb < Test::Unit::TestCase
     assert last_response.ok?
     assert_equal [], JSON.parse(last_response.body, :create_additions => true)['results']
   end
+  
+  def test_query_include_data
+    v = @index.random_vector(10)
+    similarity = @index.similarity.similarity(v, v)
+    post '/index', :data => v.to_json, :id => 'foo'
+
+    post '/query', :data => v.to_json, :include_data => "true"
+    assert last_response.ok?
+    last_results = JSON.parse(last_response.body, :create_additions => true)['results'] 
+    assert_equal v, last_results.first['data']
+
+    post '/query', :data => v.to_json, :include_data => "false"
+    assert last_response.ok?
+    last_results = JSON.parse(last_response.body, :create_additions => true)['results'] 
+    assert_equal nil, last_results.first['data']
+
+    post '/query', :data => v.to_json, :include_data => "foo"
+    assert (not last_response.ok?)
+  end
 
   def test_query_no_data
     post '/query'

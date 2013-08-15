@@ -79,7 +79,7 @@ class TestIndex < Test::Unit::TestCase
     assert (hashes.first.first == first_hash_value or hashes.first.first == first_hash_value + 1)
   end
 
-  def test_order_results_by_similarity
+  def test_filter_results_by_similarity
     100.times do |i|
       v1 = @index.random_vector(10)
       v2 = @index.random_vector(10)
@@ -87,13 +87,13 @@ class TestIndex < Test::Unit::TestCase
       r1 = { :data => v1, :hash => v1.hash, :id => 'a' }
       r2 = { :data => v2, :hash => v2.hash, :id => 'b' }
       r3 = { :data => v3, :hash => v3.hash, :id => 'c' }
-      d11 = @index.similarity(v1, v1.transpose)
-      d12 = @index.similarity(v1, v2.transpose)
-      d13 = @index.similarity(v1, v3.transpose)
+      d11 = @index.similarity.similarity(v1, v1)
+      d12 = @index.similarity.similarity(v1, v2)
+      d13 = @index.similarity.similarity(v1, v3)
       if d11 > d12 and d12 > d13
-        assert_equal [r1, r2, r3], @index.order_results_by_similarity(v1, [r1,r2,r3])
+        assert_equal [r1, r2, r3], @index.filter_results_by_similarity(v1, [r1,r2,r3])
       elsif d11 > d13 and d13 > d12
-        assert_equal [r1, r3, r2], @index.order_results_by_similarity(v1, [r1,r2,r3])
+        assert_equal [r1, r3, r2], @index.filter_results_by_similarity(v1, [r1,r2,r3])
       end
     end
   end
@@ -123,6 +123,16 @@ class TestIndex < Test::Unit::TestCase
     end
   end
 
+  def test_query_min_similarity
+    v1 = @index.random_vector_unit(10)
+    similarity = @index.similarity.similarity(v1, v1)
+
+    id = @index.add(v1)
+    assert_equal v1, @index.query(v1).first[:data]
+    assert_equal id, @index.query(v1).first[:id]
+    assert_equal [], @index.query(v1, 0, similarity + 1)
+  end
+
   def test_query_ids_by_vector
     v1 = @index.random_vector(10)
     @index.add(v1, 'foo')
@@ -148,6 +158,7 @@ class TestIndex < Test::Unit::TestCase
   def test_multiprobe_query
     v1 = @index.random_vector(10)
 		id = @index.storage.generate_id
+    similarity = @index.similarity.similarity(v1, v1)
     @index.storage.add_vector(v1, id)
     hash_array = @index.hashes(v1)[0]
     hash_array ^= 1 # We flip the first bit of the first hash
@@ -155,7 +166,7 @@ class TestIndex < Test::Unit::TestCase
     bucket = @index.storage.find_bucket(0)
     @index.storage.add_vector_id_to_bucket(bucket, hash_array, id)
     # But we should still be able to retrieve v1 with multiprobe radius 1
-    assert_equal [{ :data => v1, :id => id }], @index.query(v1, 1) 
+    assert_equal [{ :data => v1, :id => id, :similarity => similarity }], @index.query(v1, 1) 
     # It should return no results with no multiprobes
     assert @index.query(v1, 0).empty?
   end

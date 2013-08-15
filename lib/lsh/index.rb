@@ -19,8 +19,9 @@ module LSH
   class Index
 
     attr_reader :storage
+    attr_accessor :similarity
 
-    def initialize(parameters = {}, storage = LSH::Storage::Memory.new)
+    def initialize(parameters = {}, storage = LSH::Storage::Memory.new, similarity = LSH::CosineSimilarity.new)
       @storage = storage
       unless storage.has_index?
         storage.parameters = parameters
@@ -31,6 +32,7 @@ module LSH
           parameters[:number_of_independent_projections]
         )
         parameters[:number_of_independent_projections].times { |i| storage.create_new_bucket }
+        @similarity = similarity
       end
     end
 
@@ -53,7 +55,7 @@ module LSH
       storage.id_to_vector(id)
     end
 
-    def query(vector, multiprobe_radius = 0)
+    def query(vector, multiprobe_radius = 0, min_similarity = nil)
       hash_arrays = hashes(vector)
       hashes = hash_arrays.map { |a| hash_to_int(a) }
       results = storage.query_buckets(hashes)
@@ -69,16 +71,16 @@ module LSH
         end
         results.uniq! { |result| result[:id] }
       end
-      order_results_by_similarity(vector, results)
+      filter_results_by_similarity(vector, results, min_similarity)
     end
 
-    def query_ids(id, multiprobe_radius = 0)
+    def query_ids(id, multiprobe_radius = 0, min_similarity = nil)
       vector = id_to_vector(id)
-      query_ids_by_vector(vector, multiprobe_radius)
+      query_ids_by_vector(vector, multiprobe_radius, min_similarity)
     end
 
-    def query_ids_by_vector(vector, multiprobe_radius = 0)
-      results = query(vector, multiprobe_radius)
+    def query_ids_by_vector(vector, multiprobe_radius = 0, min_similarity = nil)
+      results = query(vector, multiprobe_radius, min_similarity)
       results.map { |result| result[:id] }
     end
 
@@ -93,9 +95,17 @@ module LSH
       mp_arrays
     end
 
-    def order_results_by_similarity(vector, results)
-      vector_t = vector.transpose
-      results.sort_by { |result| similarity(result[:data], vector_t) } .reverse
+    def filter_results_by_similarity(vector, results, min_similarity = nil)
+      similarities = @similarity.similarity_list(results.map { |result| result[:data] }, vector)
+      results = results.zip(similarities) \
+                       .map { |result, similarity| result.update(:similarity => similarity) }
+                       .sort_by { |result| result[:similarity] } .reverse
+
+      if min_similarity.nil?
+        results
+      else
+        results.select { |result| result[:similarity] >= min_similarity }
+      end
     end
 
     def hashes(vector)
@@ -157,10 +167,6 @@ module LSH
     def generate_projection(dim, k)
       MathUtil.random_gaussian_matrix(k, dim)
      end
-
-    def similarity(v1, v2)
-      MathUtil.dot(v1, v2)
-    end
 
     def inspect
       "#<LSH index; dimension: #{storage.parameters[:dim]}; window size: #{storage.parameters[:window]}; #{storage.parameters[:number_of_random_vectors]} random vectors; #{storage.parameters[:number_of_independent_projections]} independent projections>"

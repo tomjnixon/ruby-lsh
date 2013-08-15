@@ -23,3 +23,4 @@ else
   require_relative 'lsh/math_util_gsl.rb'
 end
 require_relative 'lsh/web.rb'
+require_relative 'lsh/similarity.rb'

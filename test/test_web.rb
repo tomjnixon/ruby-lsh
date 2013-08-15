@@ -63,9 +63,27 @@ class TestWeb < Test::Unit::TestCase
     post '/index', :data => v.to_json, :id => 'foo'
     post '/query', :data => v.to_json
     assert last_response.ok?
-    assert_equal 1, JSON.parse(last_response.body)['results'].size
-    assert_equal v, JSON.parse(last_response.body, :create_additions => true)['results'].first['data']
-    assert_equal 'foo', JSON.parse(last_response.body)['results'].first['id'] # id is included
+    last_results = JSON.parse(last_response.body, :create_additions => true)['results'] 
+    assert_equal 1, last_results.size
+    assert_equal v, last_results.first['data']
+    assert_equal 'foo', last_results.first['id'] # id is included
+  end
+
+  def test_query_min_similarity
+    v = @index.random_vector(10)
+    similarity = @index.similarity.similarity(v, v)
+    post '/index', :data => v.to_json, :id => 'foo'
+
+    post '/query', :data => v.to_json, :min_similarity => similarity - 1
+    assert last_response.ok?
+    last_results = JSON.parse(last_response.body, :create_additions => true)['results'] 
+    assert_equal 1, last_results.size
+    assert_equal v, last_results.first['data']
+    assert_equal 'foo', last_results.first['id'] # id is included
+
+    post '/query', :data => v.to_json, :min_similarity => similarity + 1
+    assert last_response.ok?
+    assert_equal [], JSON.parse(last_response.body, :create_additions => true)['results']
   end
 
   def test_query_no_data

@@ -24,7 +24,8 @@ module LSH
       if mime_type == 'application/json'
         t0 = Time.now
         vector = JSON.parse(params[:data], :create_additions => true)
-        results = index.query(vector, params[:radius] || 0)
+        min_similarity = params[:min_similarity].to_f if params[:min_similarity]
+        results = index.query(vector, params[:radius] || 0, min_similarity)
         content_type :json
         { "time" => Time.now - t0, "results" => results }.to_json
       else

@@ -32,8 +32,8 @@ module LSH
           parameters[:number_of_independent_projections]
         )
         parameters[:number_of_independent_projections].times { |i| storage.create_new_bucket }
-        @similarity = similarity
       end
+      @similarity = similarity
     end
 
     def self.load(storage)

@@ -112,6 +112,25 @@ module LSH
         @redis.incr "lsh:buckets"
       end
 
+      def intern(vector_id)
+        if @last_intern and @last_intern[0] == vector_id
+          int_id = @last_intern[1]
+        else
+          int_id = @redis.hget("lsh:intern", vector_id)
+          if int_id.nil?
+            int_id = @redis.incr "lsh:next_intern"
+            @redis.hset("lsh:intern", vector_id, int_id)
+            @redis.hset("lsh:extern", int_id, vector_id)
+            @last_intern = [vector_id, int_id]
+          end
+        end
+        int_id
+      end
+      
+      def extern(int_id)
+        @redis.hget("lsh:extern", int_id)
+      end
+
       def generate_id
         (@redis.incr "lsh:max_vector_id").to_s
       end
@@ -137,7 +156,7 @@ module LSH
       end
 
       def add_vector_id_to_bucket(bucket, hash, vector_id)
-        @redis.sadd "#{bucket}:#{hash}", vector_id
+        @redis.sadd "#{bucket}:#{hash}", intern(vector_id)
       end
 
       def id_to_vector(vector_id)
@@ -153,7 +172,12 @@ module LSH
           bucket = find_bucket(i)
           "#{bucket}:#{hash}"
         end
-        result_ids = @redis.sunion(keys)
+        result_int_ids = @redis.sunion(keys)
+        result_ids = if result_int_ids.length > 0
+                       @redis.hmget("lsh:extern", result_int_ids)
+                     else
+                       []
+                     end
 
         result_ids.map do |vector_id|
           {

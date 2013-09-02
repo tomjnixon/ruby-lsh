@@ -30,6 +30,11 @@ class MockRedis
     keys = keys.first if keys.length == 1 and keys.first.is_a? Enumerable
     super *keys
   end
+
+  def hmget(key, *fields)
+    fields = fields.first if fields.length == 1 and fields.first.is_a? Enumerable
+    super key, *fields
+  end
 end
 
 
